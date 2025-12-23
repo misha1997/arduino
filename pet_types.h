@@ -66,7 +66,8 @@ enum SoundEvent : uint8_t {
   SND_SAD,
   SND_ANGRY,
   SND_SICK,
-  SND_RANDOM
+  SND_RANDOM,
+  SND_HATCH
 };
 
 // ------------------- PERSONALITY -------------------
@@ -101,6 +102,7 @@ struct PetState {
 
   PersonalityType personality;
   uint32_t xp;
+  uint32_t ageSec;
 };
 
 struct Brain {

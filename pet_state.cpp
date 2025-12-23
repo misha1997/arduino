@@ -120,23 +120,67 @@ Emotion deriveEmotion() {
 }
 
 void simTick1s() {
-  pet.st.hunger = clampi(pet.st.hunger - 1, 0, 100);
-  pet.st.thirst = clampi(pet.st.thirst - 1, 0, 100);
-  pet.st.boredom = clampi(pet.st.boredom + 1, 0, 100);
+  // --- Возраст ---
+  pet.ageSec++;
 
-  // Synchronize sleeping flag with AI modes
-  pet.st.sleeping = (ai.mode >= M_SLEEP_DROWSY && ai.mode <= M_SLEEP_DEEP);
+  // --- Контекст ---
+  bool sleeping = (ai.mode >= M_SLEEP_DROWSY && ai.mode <= M_SLEEP_DEEP);
+  bool sickHeavy = (ai.mode == M_SICK_HEAVY);
 
-  aiTick();  // FSM / habits
+  // --- Эволюция: EGG → BABY ---
+  if (pet.stage == ST_EGG && pet.ageSec > 600) {
+    pet.stage = ST_BABY;
 
-  Emotion e = deriveEmotion();
-  if (e != pet.emotion) {
-    pet.emotion = e;
-    if (e == HAPPY) playSound(SND_HAPPY);
-    if (e == SAD) playSound(SND_SAD);
-    if (e == ANGRY) playSound(SND_ANGRY);
+    // сброс базовых параметров для "рождения"
+    pet.st.hunger = 80;
+    pet.st.thirst = 80;
+    pet.st.energy = 80;
+    pet.st.boredom = 20;
+    pet.st.sleepDebt = 0;
+
+    ai.mode = M_WAKE_UP;
+    ai.modeSince = millis();
+
+    playSound(SND_HATCH);
+    return;  // ⛔ важно: не выполнять остальную симуляцию в этот тик
+  }
+
+  // --- Потребности ---
+  if (!sleeping) {
+    pet.st.hunger = clampi(pet.st.hunger - 1, 0, 100);
+    pet.st.thirst = clampi(pet.st.thirst - 1, 0, 100);
+  }
+
+  // --- Скука ---
+  if (!sleeping && !sickHeavy) {
+    pet.st.boredom = clampi(pet.st.boredom + 1, 0, 100);
+  }
+
+  // --- Сон ---
+  pet.st.sleeping = sleeping;
+
+  // --- AI / привычки ---
+  aiTick();
+
+  // --- Эмоции ---
+  Emotion newEmotion = deriveEmotion();
+  if (newEmotion != pet.emotion) {
+    pet.emotion = newEmotion;
+
+    // защита от звукового спама
+    static uint32_t lastEmotionSound = 0;
+    if (millis() - lastEmotionSound > 4000) {
+      lastEmotionSound = millis();
+      switch (newEmotion) {
+        case HAPPY: playSound(SND_HAPPY); break;
+        case SAD: playSound(SND_SAD); break;
+        case ANGRY: playSound(SND_ANGRY); break;
+        default: break;
+      }
+    }
   }
 }
+
 
 const char* emotionToStr(Emotion e) {
   static const char* n[] = { "HAPPY", "EXCITED", "PLAYFUL", "CONTENT", "NEUTRAL", "TIRED", "SLEEPY", "HUNGRY", "THIRSTY", "SAD", "SICK", "ANGRY" };
